@@ -10,13 +10,13 @@ Worldie is a static, single-page quiz. Current quizzes identify a country or ter
 
 - Keep play quick-fire and keyboard-first: Enter submits or continues, and Escape skips.
 - Keep implementation simple and readable to a beginner-to-intermediate web developer.
-- Stay light on older devices and slow connections: no runtime framework, web fonts, or icon library; load local flag SVGs only for the current question and the preloaded next flag.
+- Stay light on older devices and slow connections: no runtime framework, web fonts, or icon library; during play load only the current flag and the preloaded next flag, and lazy-load answer-list flags near the viewport.
 
 ## 3. Hard constraints
 
 - Keep the site static: plain HTML, vanilla JavaScript and Tailwind CSS. Runtime scripts are classic scripts, use ES2015-level syntax, and do not use modules, TypeScript, optional chaining, a framework, or a bundler.
 - Tailwind is compiled with the standalone CLI into `output.css`; that production file is committed. Do not use the Play CDN. Any class toggled from JavaScript must appear literally in `index.html` or `app.js` so Tailwind can compile it.
-- Do not add runtime `fetch()` or remote/CDN assets. Use relative paths. The app loads local flag SVGs as questions advance and preloads at most the next SVG.
+- Do not add runtime `fetch()` or remote/CDN assets. Use relative paths. During play, load only the current flag and at most the next SVG; the answers view lazy-loads local flags near the viewport.
 - Do not add animations or transitions, modals, overlays, floating popups, toasts, autocomplete, or suggestions. The transient inline “also accepted” notice is the sole exception; it has no overlay or animation.
 - Keep localStorage reads and writes in `try/catch`; validate stored values before restoring them so missing, corrupt, or outdated data cannot break play.
 
@@ -71,7 +71,8 @@ To run locally, open `index.html` directly in a browser or use any static web se
 - `guessType` is `place` or `capital`; `promptType` is `flag` or `country`. `place` quizzes use a flag prompt and the selected place categories. Capital quizzes use country entries with a capital, and can prompt with either the flag or the country name. The country-name prompt is disabled for place quizzes.
 - The six real continent filters and pseudo-continent `Other` select entries by exact `continent` value; every `data.js` entry has exactly one valid value. `Other` is disabled when the currently selected place types contain no `Other` entries, but its checked state is retained. A disabled `Other` checkbox neither adds flags nor satisfies the requirement to select a continent. The hint explains why it is disabled.
 - The start button is disabled when there is no selected enabled continent, no selected place type for a place quiz, or no eligible questions.
-- Starting a round maps selected entries to codes and shuffles them with the existing Fisher–Yates shuffle. Progress and totals are based on that round's queue. For flag prompts, only the current flag and one next flag are loaded; the border is directly on the `<img>`.
+- The “View answers” screen uses the same eligible entries as Start, sorts them by place name, and builds a two-column question-and-answer table only while open. It clears the table on return and does not start or persist a game. Place rows show the flag and answer; capital rows show the country/flag prompt beside the capital, with no flag for country-name prompts.
+- Starting a round maps selected entries to codes and shuffles them with the existing Fisher–Yates shuffle. Progress and totals are based on that round's queue. For flag prompts during play, only the current flag and one next flag are loaded; the answers view additionally lazy-loads flags near the viewport. Flag images have a 1px border directly on the `<img>`.
 
 ### Answers, skips, scoring, and replay
 
@@ -101,6 +102,7 @@ The category, game-mode, answer-mode, and timer-display settings have separate k
 - Compile Tailwind instead of using its CDN: reduce page weight on slow connections.
 - Keep quiz data in hand-written `data.js` instead of fetching JSON: support `file://` use without an extra request.
 - Put a 1px border on the flag `<img>` instead of using a background colour: keep white flags visible in both light and dark mode.
+- Lazy-load flag images in the answers list to keep revision browsing light on slow connections.
 - Assign one continent per country: keep filtering simple.
 - Enable `Other` by counting matching data entries in the selected place types rather than hard-coding a category name: keep the rule correct if place types change.
 - Keep the default country set at 197 sovereign states.

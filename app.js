@@ -42,6 +42,7 @@ const state = {
 };
 const elements = {
     startScreen: $("start-screen"),
+    answersScreen: $("answers-screen"),
     playScreen: $("play-screen"),
     endScreen: $("end-screen"),
     gameHint: $("game-hint"),
@@ -65,6 +66,10 @@ const elements = {
     ),
     countryCount: $("country-count"),
     startButton: $("start-button"),
+    viewAnswersButton: $("view-answers-button"),
+    answersBackButton: $("answers-back-button"),
+    answersCount: $("answers-count"),
+    answersList: $("answers-list"),
     otherContinentNote: $("other-continent-note"),
     replayIndicator: $("replay-indicator"),
     progress: $("progress"),
@@ -547,6 +552,7 @@ function updateStartScreen() {
         !hasSelectedContinent ||
         (placeFromFlag && state.selectedCategories.length === 0) ||
         count === 0;
+    elements.viewAnswersButton.disabled = elements.startButton.disabled;
 }
 
 function updateAnswerMode() {
@@ -656,9 +662,62 @@ function renderEndScreen() {
     });
 }
 
+function renderAnswers() {
+    const flags = selectedFlags().sort((a, b) =>
+        a.name.localeCompare(b.name)
+    );
+    const rows = document.createDocumentFragment();
+    const images = [];
+    elements.answersCount.textContent =
+        flags.length + (flags.length === 1 ? " answer" : " answers");
+    elements.answersList.textContent = "";
+    flags.forEach((flag) => {
+        const row = document.createElement("tr");
+        const question = document.createElement("td");
+        question.className = "px-4 py-2";
+        if (state.promptType === "flag") {
+            const image = document.createElement("img");
+            image.width = 80;
+            image.height = 60;
+            image.loading = "lazy";
+            image.decoding = "async";
+            image.alt = "";
+            image.className =
+                "block h-auto border border-solid border-slate-400 dark:border-slate-500";
+            question.appendChild(image);
+            images.push(image);
+        }
+        if (state.guessType === "capital") {
+            const name = document.createElement("span");
+            name.className =
+                state.promptType === "flag"
+                    ? "block text-sm text-slate-600 dark:text-slate-300"
+                    : "font-medium";
+            name.textContent = flag.name;
+            question.appendChild(name);
+        }
+        const answer = document.createElement("td");
+        answer.className = "px-4 py-2 font-semibold";
+        answer.textContent =
+            state.guessType === "place" ? flag.name : flag.capital;
+        row.appendChild(question);
+        row.appendChild(answer);
+        rows.appendChild(row);
+    });
+    elements.answersList.appendChild(rows);
+    images.forEach((image, index) => {
+        image.src = flagPath(flags[index].code);
+    });
+}
+
 function render() {
     updateAnswerMode();
+    elements.gameHint.classList.toggle("hidden", state.screen === "answers");
     elements.startScreen.classList.toggle("hidden", state.screen !== "start");
+    elements.answersScreen.classList.toggle(
+        "hidden",
+        state.screen !== "answers"
+    );
     elements.playScreen.classList.toggle("hidden", state.screen !== "playing");
     elements.endScreen.classList.toggle("hidden", state.screen !== "end");
     if (state.screen === "start") {
@@ -667,10 +726,25 @@ function render() {
     } else if (state.screen === "playing") {
         renderPlaying();
         syncPlayTimer();
-    } else {
+    } else if (state.screen === "end") {
         stopPlayTimer();
         renderEndScreen();
     }
+}
+
+function openAnswers() {
+    state.screen = "answers";
+    render();
+    renderAnswers();
+    elements.answersBackButton.focus();
+    window.scrollTo(0, 0);
+}
+
+function closeAnswers() {
+    elements.answersList.textContent = "";
+    state.screen = "start";
+    render();
+    elements.viewAnswersButton.focus();
 }
 
 function startGame(questions) {
@@ -847,6 +921,8 @@ elements.showTimerInput.addEventListener("change", () => {
     updateTimerDisplay();
 });
 elements.startButton.addEventListener("click", () => startGame());
+elements.viewAnswersButton.addEventListener("click", openAnswers);
+elements.answersBackButton.addEventListener("click", closeAnswers);
 elements.answerForm.addEventListener("submit", (event) => {
     event.preventDefault();
     if (state.revealed) moveNext();
@@ -868,6 +944,13 @@ $("play-again-button").addEventListener("click", () => startGame());
 $("change-button").addEventListener("click", clearGame);
 
 document.addEventListener("keydown", (event) => {
+    if (state.screen === "answers") {
+        if (event.key === "Escape") {
+            event.preventDefault();
+            closeAnswers();
+        }
+        return;
+    }
     if (state.screen !== "playing") return;
     if (event.key === "Escape") {
         event.preventDefault();
@@ -879,14 +962,18 @@ document.addEventListener("keydown", (event) => {
 });
 
 document.addEventListener("visibilitychange", () => {
+    if (state.screen === "answers") return;
     syncPlayTimer();
     if (document.hidden && state.screen === "playing") saveState();
 });
 window.addEventListener("pagehide", () => {
+    if (state.screen === "answers") return;
     stopPlayTimer();
     saveState();
 });
-window.addEventListener("pageshow", syncPlayTimer);
+window.addEventListener("pageshow", () => {
+    if (state.screen !== "answers") syncPlayTimer();
+});
 
 restoreAnswerMode();
 restoreTimerSetting();
