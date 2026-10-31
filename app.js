@@ -18,7 +18,12 @@ const STORAGE_KEY = "worldie-state-v1";
 const ANSWER_MODE_KEY = "worldie-answer-mode-v1";
 const CATEGORY_KEY = "worldie-categories-v1";
 const GAME_MODE_KEY = "worldie-game-mode-v1";
+const TIMER_KEY = "worldie-timer-v1";
 let alsoAcceptedNotice = null;
+let showTimer = true;
+let elapsedMs = 0;
+let playStartedAt = null;
+let timerInterval = null;
 const state = {
     screen: "start",
     answerMode: "submit",
@@ -51,6 +56,7 @@ const elements = {
     answerModeInputs: Array.from(
         document.querySelectorAll('input[name="answer-mode"]')
     ),
+    showTimerInput: $("show-timer-input"),
     continentInputs: Array.from(
         document.querySelectorAll("#continent-list input")
     ),
@@ -62,6 +68,7 @@ const elements = {
     otherContinentNote: $("other-continent-note"),
     replayIndicator: $("replay-indicator"),
     progress: $("progress"),
+    playTimer: $("play-timer"),
     playHeading: $("play-heading"),
     countryPrompt: $("country-prompt"),
     flagImage: $("flag-image"),
@@ -75,6 +82,8 @@ const elements = {
     skipButton: $("skip-button"),
     continueButton: $("continue-button"),
     endTotalLabel: $("end-total-label"),
+    endTimeLabel: $("end-time-label"),
+    endTime: $("end-time"),
     endAlsoAcceptedNotice: $("end-also-accepted-notice"),
     endTotal: $("end-total"),
     endCorrect: $("end-correct"),
@@ -111,6 +120,63 @@ function clearAlsoAcceptedNotice() {
     elements.alsoAcceptedNotice.textContent = "";
     elements.endAlsoAcceptedNotice.textContent = "";
     elements.endAlsoAcceptedNotice.classList.add("hidden");
+}
+
+function elapsedMilliseconds() {
+    return (
+        elapsedMs +
+        (playStartedAt === null
+            ? 0
+            : Math.max(0, Date.now() - playStartedAt))
+    );
+}
+
+function formatElapsed(milliseconds) {
+    const totalSeconds = Math.round(Math.max(0, milliseconds) / 1000);
+    const seconds = totalSeconds % 60;
+    const totalMinutes = Math.floor(totalSeconds / 60);
+    const minutes = totalMinutes % 60;
+    const hours = Math.floor(totalMinutes / 60);
+    const secondsText = seconds < 10 ? "0" + seconds : seconds;
+    if (hours > 0) {
+        const minutesText = minutes < 10 ? "0" + minutes : minutes;
+        return hours + ":" + minutesText + ":" + secondsText;
+    }
+    return totalMinutes + ":" + secondsText;
+}
+
+function updateTimerDisplay() {
+    const visible = showTimer && state.screen === "playing" && !document.hidden;
+    elements.playTimer.classList.toggle("hidden", !visible);
+    elements.playTimer.textContent = visible
+        ? "Time: " + formatElapsed(elapsedMilliseconds())
+        : "";
+}
+
+function startPlayTimer() {
+    if (state.screen !== "playing" || document.hidden) return;
+    if (playStartedAt === null) playStartedAt = Date.now();
+    if (showTimer && timerInterval === null)
+        timerInterval = setInterval(updateTimerDisplay, 1000);
+    updateTimerDisplay();
+}
+
+function stopPlayTimer() {
+    if (playStartedAt !== null) {
+        elapsedMs += Math.max(0, Date.now() - playStartedAt);
+        playStartedAt = null;
+    }
+    if (timerInterval !== null) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+    updateTimerDisplay();
+}
+
+function syncPlayTimer() {
+    if (state.screen === "playing" && !state.revealed && !document.hidden)
+        startPlayTimer();
+    else stopPlayTimer();
 }
 
 function flagPath(code) {
@@ -170,6 +236,7 @@ function saveState() {
                   firstTry: state.firstTry,
                   revealed: state.revealed,
                   replaying: state.replaying,
+                  elapsedMs: elapsedMilliseconds(),
                }
             : null;
     try {
@@ -297,6 +364,25 @@ function saveAnswerMode() {
     }
 }
 
+function restoreTimerSetting() {
+    try {
+        const saved = localStorage.getItem(TIMER_KEY);
+        if (saved === "true") showTimer = true;
+        else if (saved === "false") showTimer = false;
+    } catch (error) {
+        showTimer = true;
+    }
+    elements.showTimerInput.checked = showTimer;
+}
+
+function saveTimerSetting() {
+    try {
+        localStorage.setItem(TIMER_KEY, showTimer ? "true" : "false");
+    } catch (error) {
+        // The timer setting still works until the page is closed.
+    }
+}
+
 function validSelection(selection) {
     return (
         Array.isArray(selection) &&
@@ -377,6 +463,10 @@ function restoreState() {
         saveState();
         return;
     }
+    elapsedMs =
+        Number.isFinite(saved.game.elapsedMs) && saved.game.elapsedMs >= 0
+            ? saved.game.elapsedMs
+            : 0;
     state.screen = "playing";
     const gameMode = savedGameMode(saved.game);
     state.guessType = gameMode.guessType;
@@ -539,6 +629,9 @@ function renderEndScreen() {
         !alsoAcceptedNotice
     );
     elements.endTotalLabel.textContent = flagQuiz ? "Flags:" : "Questions:";
+    elements.endTimeLabel.textContent =
+        state.skipped.length > 0 ? "Time so far:" : "Completion time:";
+    elements.endTime.textContent = formatElapsed(elapsedMs);
     elements.skippedHeading.textContent = placeQuiz
         ? "Skipped places"
         : "Skipped capitals";
@@ -568,12 +661,21 @@ function render() {
     elements.startScreen.classList.toggle("hidden", state.screen !== "start");
     elements.playScreen.classList.toggle("hidden", state.screen !== "playing");
     elements.endScreen.classList.toggle("hidden", state.screen !== "end");
-    if (state.screen === "start") updateStartScreen();
-    else if (state.screen === "playing") renderPlaying();
-    else renderEndScreen();
+    if (state.screen === "start") {
+        stopPlayTimer();
+        updateStartScreen();
+    } else if (state.screen === "playing") {
+        renderPlaying();
+        syncPlayTimer();
+    } else {
+        stopPlayTimer();
+        renderEndScreen();
+    }
 }
 
 function startGame(questions) {
+    stopPlayTimer();
+    if (!questions) elapsedMs = 0;
     clearAlsoAcceptedNotice();
     const queue = (questions || selectedFlags()).map(
         (question) => question.code
@@ -600,6 +702,7 @@ function replaySkipped() {
 }
 
 function finishGame() {
+    stopPlayTimer();
     state.screen = "end";
     saveState();
     render();
@@ -668,6 +771,8 @@ function checkAnswer() {
 }
 
 function clearGame() {
+    stopPlayTimer();
+    elapsedMs = 0;
     clearAlsoAcceptedNotice();
     state.screen = "start";
     state.queue = [];
@@ -736,6 +841,11 @@ elements.answerModeInputs.forEach((input) =>
         updateAnswerMode();
     })
 );
+elements.showTimerInput.addEventListener("change", () => {
+    showTimer = elements.showTimerInput.checked;
+    saveTimerSetting();
+    updateTimerDisplay();
+});
 elements.startButton.addEventListener("click", () => startGame());
 elements.answerForm.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -768,7 +878,18 @@ document.addEventListener("keydown", (event) => {
     }
 });
 
+document.addEventListener("visibilitychange", () => {
+    syncPlayTimer();
+    if (document.hidden && state.screen === "playing") saveState();
+});
+window.addEventListener("pagehide", () => {
+    stopPlayTimer();
+    saveState();
+});
+window.addEventListener("pageshow", syncPlayTimer);
+
 restoreAnswerMode();
+restoreTimerSetting();
 restoreCategories();
 restoreGameMode();
 restoreState();

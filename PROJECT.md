@@ -77,6 +77,7 @@ To run locally, open `index.html` directly in a browser or use any static web se
 
 - `normalise()` trims and lowercases text, decomposes and removes diacritics, converts `&` to `and`, removes punctuation, collapses whitespace, and removes a leading `the `. Place answers match the normalised `name` or any `aliases`; capital answers match `capital` or any `capitalAliases`. Alias-only correct answers show a transient inline notice with the accepted alias and main answer. It remains while the following question is active and clears when that question is answered correctly or skipped, or when the player quits or starts a new game. If an alias answer ends the round, the notice remains on the end screen until an end-screen action; it is not persisted or scored separately.
 - `submit` is the default answer mode: the form/Enter submits, a wrong answer shows “Incorrect, try again”, and clears the current first-try flag. `auto` checks on input and advances on a match; non-matches are silent and do not clear that flag, so there is no “incorrect” feedback while typing.
+- Run time uses timestamps while the player is guessing; it pauses after a skip reveal, on menus, and in hidden tabs, and accumulates across replay-skipped rounds. “Play again”, a new game, and quitting reset the run. End screens always show “Time so far” when skips remain or “Completion time” when the run is complete. “Show timer” only controls the in-game display.
 - Skip button or Escape records the current code in `skipped`, reveals the answer, and does not re-queue the question. Continue button or Enter advances after a reveal. Wrong answers are not counted as skips.
 - `correctFirstTry`, `skipped`, and the total are per round. The end screen lists that round's skipped entries. “Replay skipped” starts a freshly shuffled queue made only from that round's skipped codes, using the same game-start path; its score and skip list reset. Further rounds can replay their own skips. “Play again” starts from the unchanged selection, not the replay subset.
 - An active replay stores `replaying: true` so its indicator can return after refresh. Missing `replaying` in an older saved game means false. The end screen itself is not persisted; refreshing after a round returns to the start screen.
@@ -87,12 +88,13 @@ All storage access and JSON parsing is guarded by `try/catch`. Invalid values ar
 
 | Key | Stored value and validation |
 | --- | --- |
-| `worldie-state-v1` | JSON `{ continentSelectionVersion, selectedContinents, game }`. Continents must be a non-empty, unique list of known values. Version `2` marks the current selection format; an older saved selection without it gains checked `Other`, while a current unchecked `Other` stays unchecked. `game` is `null` outside play; an active game stores `guessType`, `promptType`, `queue`, `index`, `correctFirstTry`, `skipped`, `firstTry`, `revealed`, and `replaying`. The game validator checks mode, queue eligibility and uniqueness, index, score, skip positions, and booleans. Replay queues may be a non-empty eligible subset; ordinary queues must contain the full eligible set. |
+| `worldie-state-v1` | JSON `{ continentSelectionVersion, selectedContinents, game }`. Continents must be a non-empty, unique list of known values. Version `2` marks the current selection format; an older saved selection without it gains checked `Other`, while a current unchecked `Other` stays unchecked. `game` is `null` outside play; an active game stores `guessType`, `promptType`, `queue`, `index`, `correctFirstTry`, `skipped`, `firstTry`, `revealed`, `replaying`, and optional `elapsedMs`. Missing, non-finite, or negative `elapsedMs` restores as `0`; time while the page is closed is not counted. The game validator checks mode, queue eligibility and uniqueness, index, score, skip positions, and booleans. Replay queues may be a non-empty eligible subset; ordinary queues must contain the full eligible set. |
 | `worldie-categories-v1` | JSON list of unique known categories; must be non-empty. |
 | `worldie-game-mode-v1` | JSON `{ guessType, promptType }`, validated against the supported combinations. Legacy strings `flag-country`, `flag-capital`, and `country-capital` are also accepted. |
 | `worldie-answer-mode-v1` | String `submit` or `auto`; other values are ignored. |
+| `worldie-timer-v1` | String `true` or `false`; missing or invalid values default to `true`. Controls only the in-game timer display. |
 
-The category, game-mode, and answer-mode settings have separate keys; selected continents are stored alongside the active-game record. Storage failures do not prevent the quiz from running.
+The category, game-mode, answer-mode, and timer-display settings have separate keys; selected continents and active run time are stored alongside the active-game record. Storage failures do not prevent the quiz from running.
 
 ## 7. Design decisions and rationale
 
@@ -106,6 +108,7 @@ The category, game-mode, and answer-mode settings have separate keys; selected c
 - Version saved continent selections so older selections gain checked `Other` once while a current unchecked choice remains unchecked.
 - In auto-accept mode, do not show “incorrect”: by design, to keep play fast.
 - Keep the inline alias notice until the following question is answered or skipped; show it on the end screen for a final alias answer without pausing play or persisting it.
+- Measure time spent guessing with timestamps, pause through skip reveals, carry it across replay-skipped rounds, and store no past-run history.
 - Persist the replay marker with an active game: the replay indicator must survive a refresh.
 
 ## 8. Known limitations and ideas

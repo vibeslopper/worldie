@@ -59,6 +59,7 @@
             <label class="flex items-center gap-3 py-1 text-slate-700 dark:text-slate-200"><input class="size-4 accent-blue-700" type="radio" name="answer-mode" value="auto"> Auto-accept (no Enter needed)</label>
           </div>
         </fieldset>
+        <label class="mt-4 flex items-center gap-3 py-1 text-slate-700 dark:text-slate-200"><input id="show-timer-input" class="size-4 accent-blue-700" type="checkbox" checked> Show timer</label>
         <p id="country-count" class="mt-4 text-sm text-slate-600 dark:text-slate-300" aria-live="polite"></p>
         <button id="start-button" class="mt-5 w-full rounded-lg bg-blue-700 px-4 py-3 font-semibold text-white hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-blue-600 dark:hover:bg-blue-500 sm:w-auto" type="button">Start quiz</button>
       </section>
@@ -67,6 +68,7 @@
         <h2 id="play-heading" class="sr-only">Identify the flag</h2>
         <p id="replay-indicator" class="hidden mt-2 text-sm text-slate-600 dark:text-slate-300">Replaying skipped questions</p>
         <p id="progress" class="mb-4 text-sm font-medium text-slate-600 dark:text-slate-300" aria-live="polite"></p>
+        <p id="play-timer" class="hidden mb-4 text-sm text-slate-600 dark:text-slate-300" aria-live="off"></p>
         <p id="country-prompt" class="hidden mx-auto w-full border border-solid border-slate-400 p-5 text-center text-3xl font-bold dark:border-slate-500" aria-live="polite"></p>
         <img id="flag-image" class="mx-auto h-auto max-h-96 w-full border border-solid border-slate-400 dark:border-slate-500" alt="Flag for this question" draggable="false">
         <form id="answer-form" class="mt-5">
@@ -93,6 +95,7 @@
           <div><dt id="end-total-label" class="inline font-medium">Flags:</dt> <dd id="end-total" class="inline"></dd></div>
           <div><dt class="inline font-medium">Correct on the first attempt:</dt> <dd id="end-correct" class="inline"></dd></div>
           <div><dt class="inline font-medium">Skipped:</dt> <dd id="end-skipped" class="inline"></dd></div>
+          <div><dt id="end-time-label" class="inline font-medium">Completion time:</dt> <dd id="end-time" class="inline"></dd></div>
         </dl>
         <div class="mt-5">
           <h3 id="skipped-heading" class="font-medium">Skipped places</h3>
