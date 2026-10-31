@@ -17,7 +17,7 @@ Worldie is a static, single-page quiz. Current quizzes identify a country or ter
 - Keep the site static: plain HTML, vanilla JavaScript and Tailwind CSS. Runtime scripts are classic scripts, use ES2015-level syntax, and do not use modules, TypeScript, optional chaining, a framework, or a bundler.
 - Tailwind is compiled with the standalone CLI into `output.css`; that production file is committed. Do not use the Play CDN. Any class toggled from JavaScript must appear literally in `index.html` or `app.js` so Tailwind can compile it.
 - Do not add runtime `fetch()` or remote/CDN assets. Use relative paths. The app loads local flag SVGs as questions advance and preloads at most the next SVG.
-- Do not add animations or transitions, modals, popups, toasts, autocomplete, or suggestions.
+- Do not add animations or transitions, modals, overlays, floating popups, toasts, autocomplete, or suggestions. The transient inline “also accepted” notice is the sole exception; it has no overlay or animation.
 - Keep localStorage reads and writes in `try/catch`; validate stored values before restoring them so missing, corrupt, or outdated data cannot break play.
 
 ## 4. Project structure
@@ -75,7 +75,7 @@ To run locally, open `index.html` directly in a browser or use any static web se
 
 ### Answers, skips, scoring, and replay
 
-- `normalise()` trims and lowercases text, decomposes and removes diacritics, converts `&` to `and`, removes punctuation, collapses whitespace, and removes a leading `the `. Place answers match the normalised `name` or any `aliases`; capital answers match `capital` or any `capitalAliases`.
+- `normalise()` trims and lowercases text, decomposes and removes diacritics, converts `&` to `and`, removes punctuation, collapses whitespace, and removes a leading `the `. Place answers match the normalised `name` or any `aliases`; capital answers match `capital` or any `capitalAliases`. Alias-only correct answers show a transient inline notice with the accepted alias and main answer. It remains while the following question is active and clears when that question is answered correctly or skipped, or when the player quits or starts a new game. If an alias answer ends the round, the notice remains on the end screen until an end-screen action; it is not persisted or scored separately.
 - `submit` is the default answer mode: the form/Enter submits, a wrong answer shows “Incorrect, try again”, and clears the current first-try flag. `auto` checks on input and advances on a match; non-matches are silent and do not clear that flag, so there is no “incorrect” feedback while typing.
 - Skip button or Escape records the current code in `skipped`, reveals the answer, and does not re-queue the question. Continue button or Enter advances after a reveal. Wrong answers are not counted as skips.
 - `correctFirstTry`, `skipped`, and the total are per round. The end screen lists that round's skipped entries. “Replay skipped” starts a freshly shuffled queue made only from that round's skipped codes, using the same game-start path; its score and skip list reset. Further rounds can replay their own skips. “Play again” starts from the unchanged selection, not the replay subset.
@@ -105,6 +105,7 @@ The category, game-mode, and answer-mode settings have separate keys; selected c
 - Put South Georgia and the South Sandwich Islands in `Other`: Antarctica is not one of the six selectable real continents, and this territory has no real-continent assignment in the current model.
 - Version saved continent selections so older selections gain checked `Other` once while a current unchecked choice remains unchecked.
 - In auto-accept mode, do not show “incorrect”: by design, to keep play fast.
+- Keep the inline alias notice until the following question is answered or skipped; show it on the end screen for a final alias answer without pausing play or persisting it.
 - Persist the replay marker with an active game: the replay indicator must survive a refresh.
 
 ## 8. Known limitations and ideas

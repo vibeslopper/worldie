@@ -18,6 +18,7 @@ const STORAGE_KEY = "worldie-state-v1";
 const ANSWER_MODE_KEY = "worldie-answer-mode-v1";
 const CATEGORY_KEY = "worldie-categories-v1";
 const GAME_MODE_KEY = "worldie-game-mode-v1";
+let alsoAcceptedNotice = null;
 const state = {
     screen: "start",
     answerMode: "submit",
@@ -69,10 +70,12 @@ const elements = {
     guessInput: $("guess-input"),
     submitButton: $("submit-button"),
     answerHint: $("answer-hint"),
+    alsoAcceptedNotice: $("also-accepted-notice"),
     answerMessage: $("answer-message"),
     skipButton: $("skip-button"),
     continueButton: $("continue-button"),
     endTotalLabel: $("end-total-label"),
+    endAlsoAcceptedNotice: $("end-also-accepted-notice"),
     endTotal: $("end-total"),
     endCorrect: $("end-correct"),
     endSkipped: $("end-skipped"),
@@ -92,6 +95,22 @@ function normalise(value) {
         .replace(/[^\w\s]/g, "")
         .replace(/\s+/g, " ")
         .replace(/^the /, "");
+}
+
+function alsoAcceptedNoticeText() {
+    return alsoAcceptedNotice
+        ? "Accepted: " +
+              alsoAcceptedNotice.alias +
+              ". Main answer: " +
+              alsoAcceptedNotice.mainAnswer
+        : "";
+}
+
+function clearAlsoAcceptedNotice() {
+    alsoAcceptedNotice = null;
+    elements.alsoAcceptedNotice.textContent = "";
+    elements.endAlsoAcceptedNotice.textContent = "";
+    elements.endAlsoAcceptedNotice.classList.add("hidden");
 }
 
 function flagPath(code) {
@@ -480,6 +499,7 @@ function renderPlaying() {
     const flag = currentFlag();
     if (!flag) return finishGame();
     elements.replayIndicator.classList.toggle("hidden", !state.replaying);
+    elements.alsoAcceptedNotice.textContent = alsoAcceptedNoticeText();
     elements.progress.textContent =
         state.index + 1 + " / " + state.queue.length;
     const countryPrompt = state.promptType === "country";
@@ -513,6 +533,11 @@ function renderPlaying() {
 function renderEndScreen() {
     const placeQuiz = state.guessType === "place";
     const flagQuiz = placeQuiz && state.promptType === "flag";
+    elements.endAlsoAcceptedNotice.textContent = alsoAcceptedNoticeText();
+    elements.endAlsoAcceptedNotice.classList.toggle(
+        "hidden",
+        !alsoAcceptedNotice
+    );
     elements.endTotalLabel.textContent = flagQuiz ? "Flags:" : "Questions:";
     elements.skippedHeading.textContent = placeQuiz
         ? "Skipped places"
@@ -549,6 +574,7 @@ function render() {
 }
 
 function startGame(questions) {
+    clearAlsoAcceptedNotice();
     const queue = (questions || selectedFlags()).map(
         (question) => question.code
     );
@@ -579,10 +605,12 @@ function finishGame() {
     render();
 }
 
-function moveNext() {
+function moveNext(acceptedAlias) {
+    clearAlsoAcceptedNotice();
     state.index += 1;
     state.firstTry = true;
     state.revealed = false;
+    alsoAcceptedNotice = acceptedAlias || null;
     if (state.index === state.queue.length) return finishGame();
     saveState();
     render();
@@ -590,10 +618,25 @@ function moveNext() {
 
 function skipCurrent() {
     if (state.screen !== "playing" || state.revealed) return;
+    clearAlsoAcceptedNotice();
     state.skipped.push(currentFlag().code);
     state.revealed = true;
     saveState();
     render();
+}
+
+function matchAnswer(flag, guess) {
+    const mainAnswer = state.guessType === "place" ? flag.name : flag.capital;
+    const aliases =
+        state.guessType === "place" ? flag.aliases : flag.capitalAliases || [];
+    if (normalise(mainAnswer) === guess)
+        return { mainAnswer: mainAnswer, matchedAlias: null };
+    const matchedAlias = aliases.find(
+        (answer) => normalise(answer) === guess
+    );
+    return matchedAlias
+        ? { mainAnswer: mainAnswer, matchedAlias: matchedAlias }
+        : null;
 }
 
 function checkAnswer() {
@@ -603,14 +646,17 @@ function checkAnswer() {
         return;
     }
     const flag = currentFlag();
-    const answers =
-        state.guessType === "place"
-            ? [flag.name].concat(flag.aliases)
-            : [flag.capital].concat(flag.capitalAliases || []);
-    const correct = answers.some((answer) => normalise(answer) === guess);
-    if (correct) {
+    const match = matchAnswer(flag, guess);
+    if (match) {
         if (state.firstTry) state.correctFirstTry += 1;
-        return moveNext();
+        return moveNext(
+            match.matchedAlias
+                ? {
+                      alias: match.matchedAlias,
+                      mainAnswer: match.mainAnswer,
+                  }
+                : null
+        );
     }
     if (state.answerMode === "auto") return;
     state.firstTry = false;
@@ -622,6 +668,7 @@ function checkAnswer() {
 }
 
 function clearGame() {
+    clearAlsoAcceptedNotice();
     state.screen = "start";
     state.queue = [];
     state.index = 0;
@@ -704,7 +751,7 @@ elements.guessInput.addEventListener("input", () => {
         checkAnswer();
 });
 elements.skipButton.addEventListener("click", skipCurrent);
-elements.continueButton.addEventListener("click", moveNext);
+elements.continueButton.addEventListener("click", () => moveNext());
 elements.replayButton.addEventListener("click", replaySkipped);
 $("quit-button").addEventListener("click", clearGame);
 $("play-again-button").addEventListener("click", () => startGame());
