@@ -2,6 +2,15 @@ const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
 
+function normalise(value) {
+  return value.trim().toLowerCase().normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/&/g, "and")
+    .replace(/[^\w\s]/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/^the /, "");
+}
+
 const source = fs.readFileSync(path.join(__dirname, "data.js"), "utf8");
 const countries = vm.runInNewContext(source + "\ncountries", {});
 const categories = ["countries", "territories"];
@@ -25,6 +34,7 @@ const invalidCodes = [];
 const invalidCategories = [];
 const missingCapitals = [];
 const invalidCapitalAliases = [];
+const duplicateCapitalAliases = [];
 const invalidContinents = [];
 const missingFlags = [];
 let problems = 0;
@@ -56,6 +66,17 @@ countries.forEach(function (flag) {
       flag.capitalAliases.some(function (alias) { return typeof alias !== "string" || !alias.trim(); }))) {
     invalidCapitalAliases.push(flag.code);
   }
+  if (Array.isArray(flag.capitalAliases)) {
+    const capitalAnswers = new Set();
+    if (typeof flag.capital === "string") capitalAnswers.add(normalise(flag.capital));
+    flag.capitalAliases.forEach(function (alias) {
+      if (typeof alias === "string" && alias.trim()) {
+        const answer = normalise(alias);
+        if (capitalAnswers.has(answer)) duplicateCapitalAliases.push(flag.code + ": " + alias);
+        capitalAnswers.add(answer);
+      }
+    });
+  }
   if (continents.indexOf(flag.continent) === -1) {
     invalidContinents.push(flag.code + ": " + flag.continent);
   } else {
@@ -70,6 +91,7 @@ console.log("Invalid categories: " + (invalidCategories.join(", ") || "none"));
 console.log("Invalid continents: " + (invalidContinents.join(", ") || "none"));
 console.log("Countries missing capitals: " + (missingCapitals.join(", ") || "none"));
 console.log("Invalid capital aliases: " + (invalidCapitalAliases.join(", ") || "none"));
+console.log("Duplicate capital aliases: " + (duplicateCapitalAliases.join(", ") || "none"));
 Object.keys(categoryTotals).sort().forEach(function (category) {
   console.log("Category " + category + ": " + categoryTotals[category]);
 });
@@ -78,7 +100,7 @@ Object.keys(continentTotals).sort().forEach(function (continent) {
 });
 console.log("Total flags: " + countries.length);
 problems += duplicates.length + invalidCodes.length + invalidCategories.length + missingCapitals.length +
-  invalidCapitalAliases.length + invalidContinents.length + missingFlags.length;
+  invalidCapitalAliases.length + duplicateCapitalAliases.length + invalidContinents.length + missingFlags.length;
 if (categoryTotals.countries !== 197) {
   console.error("Expected 197 country flags.");
   problems += 1;
