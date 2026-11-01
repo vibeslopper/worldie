@@ -110,6 +110,7 @@ The category, game-mode, answer-mode, and timer-display settings have separate k
 - Version saved continent selections so older selections gain checked `Other` once while a current unchecked choice remains unchecked.
 - In auto-accept mode, do not show “incorrect”: by design, to keep play fast.
 - Keep the inline alias notice until the following question is answered or skipped; show it on the end screen for a final alias answer without pausing play or persisting it.
+- Reserve a compact, fixed-height feedback area above the game actions so accepted, incorrect, and skipped-answer messages do not move the controls; keep Skip/Continue on the left and Quit game on the right.
 - Measure time spent guessing with timestamps, pause through skip reveals, carry it across replay-skipped rounds, and store no past-run history.
 - Persist the replay marker with an active game: the replay indicator must survive a refresh.
 

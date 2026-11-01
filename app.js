@@ -123,6 +123,7 @@ function alsoAcceptedNoticeText() {
 function clearAlsoAcceptedNotice() {
     alsoAcceptedNotice = null;
     elements.alsoAcceptedNotice.textContent = "";
+    elements.alsoAcceptedNotice.classList.add("hidden");
     elements.endAlsoAcceptedNotice.textContent = "";
     elements.endAlsoAcceptedNotice.classList.add("hidden");
 }
@@ -595,7 +596,9 @@ function renderPlaying() {
     const flag = currentFlag();
     if (!flag) return finishGame();
     elements.replayIndicator.classList.toggle("hidden", !state.replaying);
-    elements.alsoAcceptedNotice.textContent = alsoAcceptedNoticeText();
+    const acceptedNotice = alsoAcceptedNoticeText();
+    elements.alsoAcceptedNotice.textContent = acceptedNotice;
+    elements.alsoAcceptedNotice.classList.toggle("hidden", !acceptedNotice);
     elements.progress.textContent =
         state.index + 1 + " / " + state.queue.length;
     const countryPrompt = state.promptType === "country";
@@ -618,11 +621,13 @@ function renderPlaying() {
         "text-rose-700",
         "dark:text-rose-300"
     );
-    elements.answerMessage.textContent = state.revealed
+    const answerMessage = state.revealed
         ? state.guessType === "place"
             ? "Skipped. The answer was " + flag.name + "."
             : "Skipped. The capital was " + flag.capital + "."
         : "";
+    elements.answerMessage.textContent = answerMessage;
+    elements.answerMessage.classList.toggle("hidden", !answerMessage);
     (state.revealed ? elements.continueButton : elements.guessInput).focus();
 }
 
@@ -838,6 +843,7 @@ function checkAnswer() {
     if (state.answerMode === "auto") return;
     state.firstTry = false;
     elements.answerMessage.textContent = "Incorrect, try again.";
+    elements.answerMessage.classList.remove("hidden");
     elements.answerMessage.classList.add("text-rose-700", "dark:text-rose-300");
     saveState();
     elements.guessInput.focus();
@@ -908,6 +914,7 @@ elements.answerModeInputs.forEach((input) =>
         state.answerMode = input.value === "auto" ? "auto" : "submit";
         saveAnswerMode();
         elements.answerMessage.textContent = "";
+        elements.answerMessage.classList.add("hidden");
         elements.answerMessage.classList.remove(
             "text-rose-700",
             "dark:text-rose-300"
